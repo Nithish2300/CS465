@@ -43,6 +43,10 @@ use crate::types::AccumulatorsSoA;
 /// Used for row-group skipping: if no qualifying partkey falls in a row group's
 /// l_partkey range, the entire row group can be skipped.
 fn bitmap_has_any_in_range(bitmap: &[u64], min_pk: usize, max_pk: usize) -> bool {
+    if bitmap.is_empty() || min_pk > max_pk {
+        return false;
+    }
+
     let bitmap_len = bitmap.len();
     let start_word = min_pk >> 6;
     let end_word = max_pk >> 6;
@@ -150,13 +154,8 @@ pub fn scan_lineitem(
         }
     }
 
-    if skipped_row_groups > 0 {
-        eprintln!(
-            "  Row-group skipping: {}/{} row groups skipped",
-            skipped_row_groups,
-            metadata.num_row_groups()
-        );
-    }
+    // Row-group skipping info available via skipped_row_groups if needed for debugging
+    let _ = skipped_row_groups;
 
     // -----------------------------------------------------------------------
     // Column projection: only read l_partkey, l_quantity, l_extendedprice
@@ -245,9 +244,11 @@ pub fn scan_lineitem(
             }
 
             // Qualifying row — accumulate into SoA histograms
+            debug_assert!(pk < pk_to_idx.len(), "pk {} out of pk_to_idx bounds", pk);
             let idx = unsafe { *pk_to_idx.get_unchecked(pk) } as usize;
             let qty_raw = unsafe { *qty_values.get_unchecked(i) } as i64;
             let qty_int = (qty_raw / 100) as usize; // Decimal(15,2) → integer
+            debug_assert!(qty_int >= 1 && qty_int <= 50, "qty_int {} out of range", qty_int);
             let price_raw = unsafe { *price_values.get_unchecked(i) } as i64;
 
             unsafe {

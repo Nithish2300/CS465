@@ -14,7 +14,7 @@
 ///   This comparison uses only integer multiplication and comparison —
 ///   no floating-point division or rounding in the hot path.
 ///
-/// For each quantity bucket q (1..50) that passes the threshold, we add
+/// For each quantity bucket q (1..=50) that passes the threshold, we add
 /// the accumulated price from that bucket to the running total.
 ///
 /// Finally, the total price (stored in raw Decimal cents) is converted to
@@ -45,14 +45,14 @@ pub fn compute_result(accumulators: &AccumulatorsSoA) -> Option<f64> {
         for q in 1..=50usize {
             if 500 * (q as i64) * count < sum_qty_raw {
                 any_qualifying = true;
-                total_price += unsafe { *hist.get_unchecked(q) };
+                total_price += hist[q];
             }
         }
     }
 
     if any_qualifying {
         // Convert from raw Decimal cents to dollars, then divide by 7.0
-        Some(total_price as f64 / 100.0 / 7.0)
+        Some(total_price as f64 / 700.0)
     } else {
         None
     }

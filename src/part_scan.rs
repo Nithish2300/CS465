@@ -71,7 +71,7 @@ pub fn scan_part(path: &Path) -> PartScanResult {
             .iter()
             .map(|rg| rg.num_rows())
             .sum::<i64>()
-            * 10;
+            * 2; // TPC-H part count ≈ SF*200K; 2x headroom is sufficient
     }
 
     let max_pk = max_pk as usize;
@@ -79,7 +79,7 @@ pub fn scan_part(path: &Path) -> PartScanResult {
     let mut pk_to_idx = vec![u32::MAX; max_pk + 1];
     let mut num_qualifying: u32 = 0;
     let mut min_qualifying_pk: i64 = i64::MAX;
-    let mut max_qualifying_pk: i64 = 0;
+    let mut max_qualifying_pk: i64 = i64::MIN;
 
     // -----------------------------------------------------------------------
     // Set up column projection — read only the 3 columns we need
@@ -102,13 +102,21 @@ pub fn scan_part(path: &Path) -> PartScanResult {
     // -----------------------------------------------------------------------
     // Scan batches: filter by brand + container, populate bitmap and index map
     // -----------------------------------------------------------------------
+    let mut pk_col_idx = 0usize;
+    let mut brand_col_idx = 1usize;
+    let mut container_col_idx = 2usize;
+    let mut indices_resolved = false;
+
     for batch in reader {
         let batch = batch.expect("Failed to read part batch");
-        let projected_schema = batch.schema();
 
-        let pk_col_idx = projected_schema.index_of("p_partkey").unwrap();
-        let brand_col_idx = projected_schema.index_of("p_brand").unwrap();
-        let container_col_idx = projected_schema.index_of("p_container").unwrap();
+        if !indices_resolved {
+            let projected_schema = batch.schema();
+            pk_col_idx = projected_schema.index_of("p_partkey").unwrap();
+            brand_col_idx = projected_schema.index_of("p_brand").unwrap();
+            container_col_idx = projected_schema.index_of("p_container").unwrap();
+            indices_resolved = true;
+        }
 
         let pk_col = batch
             .column(pk_col_idx)

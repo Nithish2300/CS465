@@ -28,7 +28,7 @@ WHERE p_partkey = l_partkey
 
 RUST_BINARY = "target/release/q17"
 DATA_ROOT = "data"
-SCALE_FACTORS = ["sf01", "sf0.5", "sf1", "sf2", "sf5"]
+SCALE_FACTORS = ["sf0.5", "sf1", "sf2", "sf5"]
 RUNS = 6  # 1 warmup + 5 measured
 
 

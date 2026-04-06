@@ -7,8 +7,9 @@
 // For each qualifying part (Brand#23 + MED BOX), we accumulate:
 //   - counts[i]:       number of lineitem rows for qualifying part i
 //   - sum_qty_raws[i]: sum of l_quantity in raw Decimal units (value * 100)
-//   - price_by_qty[i]: price histogram — bucket q (1..50) holds the sum of
+//   - price_by_qty[i]: price histogram — bucket q (1..=50) holds the sum of
 //                      l_extendedprice for all rows where qty_int == q
+//                      (index 0 is unused; TPC-H quantities are integers in [1, 50])
 //
 // **Why SoA instead of AoS?**
 // With Array-of-Structs, each accumulator is ~420 bytes (4 + 8 + 51*8).
@@ -27,6 +28,7 @@
 // from having counts/sums warm in L1.
 // ---------------------------------------------------------------------------
 
+#[derive(Debug)]
 pub struct AccumulatorsSoA {
     pub counts: Vec<u32>,
     pub sum_qty_raws: Vec<i64>,
@@ -55,6 +57,7 @@ impl AccumulatorsSoA {
 //     used for row-group skipping in Phase 2
 // ---------------------------------------------------------------------------
 
+#[derive(Debug)]
 pub struct PartScanResult {
     pub bitmap: Vec<u64>,
     pub pk_to_idx: Vec<u32>,
