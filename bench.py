@@ -2,6 +2,7 @@
 """Benchmark: compare Rust Q17 processor against DuckDB (single-threaded)."""
 
 import os
+import re
 import subprocess
 import sys
 import time
@@ -32,6 +33,23 @@ SCALE_FACTORS = ["sf0.5", "sf1", "sf2", "sf5"]
 RUNS = 6  # 1 warmup + 5 measured
 
 
+def parse_duration_to_secs(s):
+    """Parse Rust's Debug-formatted Duration (e.g. '157.13ms') to seconds."""
+    m = re.match(r'^([\d.]+)(ns|[µμu]s|ms|s)$', s.strip())
+    if not m:
+        raise ValueError(f"Cannot parse duration: {s!r}")
+    value = float(m.group(1))
+    unit = m.group(2)
+    if unit == 'ns':
+        return value * 1e-9
+    elif unit in ('µs', 'μs', 'us'):
+        return value * 1e-6
+    elif unit == 'ms':
+        return value * 1e-3
+    else:
+        return value
+
+
 def benchmark_duckdb(data_dir, n_runs=RUNS):
     times = []
     for _ in range(n_runs):
@@ -47,15 +65,20 @@ def benchmark_duckdb(data_dir, n_runs=RUNS):
 
 
 def benchmark_rust(data_dir, n_runs=RUNS):
+    """Run Rust binary with --bench and parse per-run times from stderr."""
+    proc = subprocess.run(
+        [RUST_BINARY, "--data", data_dir, "--bench", str(n_runs)],
+        capture_output=True, text=True, check=True
+    )
     times = []
-    for _ in range(n_runs):
-        t0 = time.perf_counter()
-        subprocess.run(
-            [RUST_BINARY, "--data", data_dir],
-            capture_output=True, text=True, check=True
+    for line in proc.stderr.splitlines():
+        m = re.match(r'^Run \d+: (.+)$', line.strip())
+        if m:
+            times.append(parse_duration_to_secs(m.group(1)))
+    if len(times) < n_runs:
+        raise RuntimeError(
+            f"Expected {n_runs} run times, got {len(times)}:\n{proc.stderr}"
         )
-        t1 = time.perf_counter()
-        times.append(t1 - t0)
     return times[1:]  # skip warmup
 
 
