@@ -7,10 +7,6 @@ target/
 # Query output
 result.csv
 
-# Project-internal files (not for public repo)
-CLAUDE.md
-evaluation.md
-
 # macOS
 .DS_Store
 
@@ -28,3 +24,4 @@ evaluation.md
 # Python
 __pycache__/
 *.pyc
+
